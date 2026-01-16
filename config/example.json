@@ -1,0 +1,47 @@
+{
+  "cameras": [
+    {
+      "id": "camera-1",
+      "name": "Main PTZ Camera",
+      "onvif": {
+        "host": "192.168.1.100",
+        "port": 8080,
+        "username": "admin",
+        "password": "admin"
+      },
+      "stream": {
+        "rtsp": "rtsp://192.168.1.100:554/stream"
+      }
+    }
+  ],
+  "encoding": {
+    "presets": {
+      "h264_1080p_5000k": {
+        "codec": "h264",
+        "bitrate": "5000k",
+        "resolution": "1920x1080",
+        "framerate": 30,
+        "preset": "medium"
+      },
+      "h265_1080p_2500k": {
+        "codec": "hevc",
+        "bitrate": "2500k",
+        "resolution": "1920x1080",
+        "framerate": 30,
+        "preset": "medium"
+      }
+    }
+  },
+  "routing": {
+    "destinations": {
+      "main-rtmp": {
+        "url": "rtmp://streaming-server/live/main",
+        "type": "rtmp"
+      },
+      "backup-srt": {
+        "url": "srt://backup-server:9710",
+        "type": "srt"
+      }
+    }
+  }
+}
