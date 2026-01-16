@@ -1,236 +1,258 @@
 const express = require('express');
 const path = require('path');
 const http = require('http');
-const https = require('https');
+const net = require('net');
 const { spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const CAMERA_IP = process.env.CAMERA_IP || '192.168.1.11';
-const CAMERA_PORT = process.env.CAMERA_PORT || 81;
-const CAMERA_USER = process.env.CAMERA_USER || '';
-const CAMERA_PASS = process.env.CAMERA_PASS || '';
+
+let cameraConfig = {
+  ip: '192.168.1.11',
+  port: 81,
+  user: '',
+  pass: '',
+  protocol: 'http'
+};
 
 // Middleware
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Helper: Make HTTP request to camera
-function cameraRequest(path, method = 'GET', data = null) {
+// Helper: HTTP request to camera
+function httpRequest(path, headers = {}) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: CAMERA_IP,
-      port: CAMERA_PORT,
+      hostname: cameraConfig.ip,
+      port: cameraConfig.port,
       path: path,
-      method: method,
+      method: 'GET',
       timeout: 5000
     };
 
-    // Add auth if provided
-    if (CAMERA_USER && CAMERA_PASS) {
-      const auth = Buffer.from(`${CAMERA_USER}:${CAMERA_PASS}`).toString('base64');
-      options.headers = { 'Authorization': `Basic ${auth}` };
+    if (cameraConfig.user && cameraConfig.pass) {
+      const auth = Buffer.from(`${cameraConfig.user}:${cameraConfig.pass}`).toString('base64');
+      headers['Authorization'] = `Basic ${auth}`;
     }
 
+    options.headers = headers;
+
     const req = http.request(options, (res) => {
-      let responseData = '';
-      res.on('data', (chunk) => { responseData += chunk; });
-      res.on('end', () => {
-        resolve({
-          status: res.statusCode,
-          headers: res.headers,
-          body: responseData
-        });
-      });
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => resolve({ status: res.statusCode, body: data }));
     });
 
-    req.on('error', (err) => {
-      console.error('[Camera Error]', err.message);
-      reject(err);
-    });
-
+    req.on('error', reject);
     req.on('timeout', () => {
       req.destroy();
-      reject(new Error('Camera timeout'));
+      reject(new Error('Timeout'));
     });
-
-    if (data) req.write(JSON.stringify(data));
     req.end();
   });
 }
 
-// Main page
+// VISCA command builder
+function buildVISCACommand(command, params = {}) {
+  const cmd = Buffer.alloc(20);
+  cmd[0] = 0x81; // Camera
+  cmd[1] = 0x01; // Sequence
+  
+  switch(command) {
+    case 'pan_left':
+      cmd[2] = 0x06; cmd[3] = 0x01;
+      cmd[4] = 0x04; cmd[5] = 0x18;
+      cmd[6] = 0x03; cmd[7] = 0x01;
+      cmd[8] = 0xFF; // End
+      return cmd.slice(0, 9);
+    
+    case 'pan_right':
+      cmd[2] = 0x06; cmd[3] = 0x01;
+      cmd[4] = 0x04; cmd[5] = 0x18;
+      cmd[6] = 0x02; cmd[7] = 0x01;
+      cmd[8] = 0xFF;
+      return cmd.slice(0, 9);
+    
+    case 'tilt_up':
+      cmd[2] = 0x06; cmd[3] = 0x01;
+      cmd[4] = 0x04; cmd[5] = 0x18;
+      cmd[6] = 0x01; cmd[7] = 0x03;
+      cmd[8] = 0xFF;
+      return cmd.slice(0, 9);
+    
+    case 'tilt_down':
+      cmd[2] = 0x06; cmd[3] = 0x01;
+      cmd[4] = 0x04; cmd[5] = 0x18;
+      cmd[6] = 0x01; cmd[7] = 0x02;
+      cmd[8] = 0xFF;
+      return cmd.slice(0, 9);
+    
+    case 'zoom_in':
+      cmd[2] = 0x04; cmd[3] = 0x47; cmd[4] = 0x00; cmd[5] = 0xFF;
+      return cmd.slice(0, 6);
+    
+    case 'zoom_out':
+      cmd[2] = 0x04; cmd[3] = 0x47; cmd[4] = 0x03; cmd[5] = 0xFF;
+      return cmd.slice(0, 6);
+    
+    case 'home':
+      cmd[2] = 0x06; cmd[3] = 0x04; cmd[4] = 0xFF;
+      return cmd.slice(0, 5);
+    
+    default:
+      return null;
+  }
+}
+
+// Send VISCA command
+function sendVISCACommand(command) {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection(cameraConfig.port, cameraConfig.ip);
+    const cmdBuf = buildVISCACommand(command);
+    
+    if (!cmdBuf) {
+      reject(new Error('Unknown VISCA command'));
+      return;
+    }
+
+    socket.on('connect', () => {
+      socket.write(cmdBuf);
+      setTimeout(() => socket.end(), 200);
+    });
+
+    socket.on('end', () => resolve({ status: 'sent' }));
+    socket.on('error', reject);
+    socket.setTimeout(5000);
+  });
+}
+
+// Main endpoints
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Health check
 app.get('/health', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'ok',
-    server: 'running',
-    camera: `${CAMERA_IP}:${CAMERA_PORT}`,
-    timestamp: new Date().toISOString()
+    camera: `${cameraConfig.ip}:${cameraConfig.port}`,
+    protocol: cameraConfig.protocol
   });
 });
 
-// Camera info endpoint
 app.get('/api/camera/info', async (req, res) => {
   try {
-    const result = await cameraRequest('/cgi-bin/api.cgi?action=getStatus');
-    console.log('[Camera Info]', result.status);
+    const result = await httpRequest('/cgi-bin/api.cgi?action=getStatus');
     res.json({
       status: 'ok',
-      camera_status: result.status,
-      response: result.body.substring(0, 200)
+      response_code: result.status,
+      camera_ip: cameraConfig.ip
     });
   } catch (e) {
-    res.json({
+    res.status(500).json({
       status: 'error',
-      message: e.message,
-      camera: `${CAMERA_IP}:${CAMERA_PORT}`
+      message: e.message
     });
   }
 });
 
-// PTZ Control endpoint
 app.post('/api/ptz', async (req, res) => {
-  const { command, pan = 0, tilt = 0, zoom = 0 } = req.body;
+  const { command, pan = 0, tilt = 0, zoom = 1 } = req.body;
   
-  console.log('[PTZ API]', { command, pan, tilt, zoom });
+  console.log('[PTZ]', { command, pan, tilt, zoom, protocol: cameraConfig.protocol });
 
   try {
-    let cameraCommand = '';
+    let result;
 
-    // Map joystick data to camera commands
-    if (command) {
-      switch (command) {
-        case 'up':
-          cameraCommand = '/cgi-bin/api.cgi?action=ptzControl&tiltUp=1';
-          break;
-        case 'down':
-          cameraCommand = '/cgi-bin/api.cgi?action=ptzControl&tiltDown=1';
-          break;
-        case 'left':
-          cameraCommand = '/cgi-bin/api.cgi?action=ptzControl&panLeft=1';
-          break;
-        case 'right':
-          cameraCommand = '/cgi-bin/api.cgi?action=ptzControl&panRight=1';
-          break;
-        case 'zoomin':
-          cameraCommand = '/cgi-bin/api.cgi?action=ptzControl&zoomIn=1';
-          break;
-        case 'zoomout':
-          cameraCommand = '/cgi-bin/api.cgi?action=ptzControl&zoomOut=1';
-          break;
-        case 'focus':
-          cameraCommand = '/cgi-bin/api.cgi?action=ptzControl&autoFocus=1';
-          break;
-        case 'home':
-          cameraCommand = '/cgi-bin/api.cgi?action=ptzControl&presetGoto=1';
-          break;
+    if (cameraConfig.protocol === 'http') {
+      // HTTP API commands
+      let httpCmd = '';
+      
+      if (command === 'left') {
+        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&panLeft=1';
+      } else if (command === 'right') {
+        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&panRight=1';
+      } else if (command === 'up') {
+        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&tiltUp=1';
+      } else if (command === 'down') {
+        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&tiltDown=1';
+      } else if (command === 'zoomin') {
+        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&zoomIn=1';
+      } else if (command === 'zoomout') {
+        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&zoomOut=1';
+      } else if (command === 'home') {
+        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&presetGoto=1';
+      } else if (command === 'focus') {
+        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&autoFocus=1';
       }
-    } else if (pan !== 0 || tilt !== 0 || zoom !== 0) {
-      // Continuous pan/tilt/zoom
-      const panVal = Math.round(pan * 100);
-      const tiltVal = Math.round(tilt * 100);
-      const zoomVal = Math.round(zoom * 10);
-      cameraCommand = `/cgi-bin/api.cgi?action=ptzControl&pan=${panVal}&tilt=${tiltVal}&zoom=${zoomVal}`;
-    }
 
-    if (cameraCommand) {
-      const result = await cameraRequest(cameraCommand);
-      console.log('[PTZ Response]', result.status);
-      res.json({
-        status: 'sent',
-        command,
-        pan, tilt, zoom,
-        camera_response: result.status
-      });
-    } else {
-      res.json({ status: 'idle', command: 'none' });
+      if (httpCmd) {
+        result = await httpRequest(httpCmd);
+        res.json({ status: 'sent', command, protocol: 'http', response: result.status });
+      } else {
+        res.json({ status: 'idle' });
+      }
+
+    } else if (cameraConfig.protocol === 'visca') {
+      // VISCA commands
+      let viscaCmd = '';
+      
+      if (command === 'left') viscaCmd = 'pan_left';
+      else if (command === 'right') viscaCmd = 'pan_right';
+      else if (command === 'up') viscaCmd = 'tilt_up';
+      else if (command === 'down') viscaCmd = 'tilt_down';
+      else if (command === 'zoomin') viscaCmd = 'zoom_in';
+      else if (command === 'zoomout') viscaCmd = 'zoom_out';
+      else if (command === 'home') viscaCmd = 'home';
+
+      if (viscaCmd) {
+        result = await sendVISCACommand(viscaCmd);
+        res.json({ status: 'sent', command, protocol: 'visca', result });
+      } else {
+        res.json({ status: 'idle' });
+      }
+
+    } else if (cameraConfig.protocol === 'onvif') {
+      // ONVIF - placeholder for future implementation
+      res.json({ status: 'pending', protocol: 'onvif', message: 'ONVIF support coming soon' });
     }
   } catch (e) {
     console.error('[PTZ Error]', e.message);
-    res.status(500).json({
-      status: 'error',
-      message: e.message
-    });
+    res.status(500).json({ status: 'error', message: e.message });
   }
 });
 
-// Stream proxy endpoint
-app.get('/api/stream', async (req, res) => {
-  const streamUrl = req.query.url || `rtsp://${CAMERA_IP}/1/h264major`;
+app.post('/api/camera/config', (req, res) => {
+  const { ip, port, user, pass, protocol } = req.body;
   
-  console.log('[Stream API]', streamUrl);
-  
-  try {
-    // Use FFprobe to check stream
-    const ffprobe = spawn('ffprobe', [
-      '-v', 'error',
-      '-select_streams', 'v:0',
-      '-show_entries', 'stream=width,height,avg_frame_rate',
-      '-of', 'json',
-      streamUrl
-    ], { timeout: 5000 });
+  if (ip) cameraConfig.ip = ip;
+  if (port) cameraConfig.port = port;
+  if (user !== undefined) cameraConfig.user = user;
+  if (pass !== undefined) cameraConfig.pass = pass;
+  if (protocol) cameraConfig.protocol = protocol;
 
-    let output = '';
-    ffprobe.stdout.on('data', (data) => { output += data.toString(); });
-    
-    ffprobe.on('close', (code) => {
-      try {
-        if (code === 0 && output) {
-          const info = JSON.parse(output);
-          res.json({
-            status: 'ok',
-            stream: info.streams?.[0] || {},
-            url: streamUrl
-          });
-        } else {
-          res.json({
-            status: 'pending',
-            url: streamUrl,
-            message: 'Stream detected but not yet fully parsed'
-          });
-        }
-      } catch (e) {
-        res.json({
-          status: 'pending',
-          url: streamUrl
-        });
-      }
-    });
-  } catch (e) {
-    res.status(500).json({
-      status: 'error',
-      message: e.message
-    });
-  }
+  console.log('[Config Updated]', cameraConfig);
+  res.json({ status: 'ok', config: cameraConfig });
 });
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Error handler
 app.use((err, req, res, next) => {
   console.error('[Error]', err.message);
   res.status(500).json({ error: err.message });
 });
 
-// Start server
+// Start
 const server = http.createServer(app);
 server.listen(PORT, () => {
-  console.log(`\n✅ PTZ Control Server running at http://localhost:${PORT}`);
-  console.log(`📡 Camera: http://${CAMERA_IP}:${CAMERA_PORT}`);
-  console.log(`🎮 PTZ endpoint: http://localhost:${PORT}/api/ptz`);
-  console.log(`📊 Stream endpoint: http://localhost:${PORT}/api/stream\n`);
+  console.log(`\n Ready: http://localhost:${PORT}`);
+  console.log(` Camera: http://${cameraConfig.ip}:${cameraConfig.port}`);
+  console.log(` Protocol: ${cameraConfig.protocol}\n`);
 });
 
 process.on('SIGTERM', () => {
-  console.log('\n🛑 Shutting down...');
+  console.log('\nShutting down...');
   server.close(() => process.exit(0));
 });
