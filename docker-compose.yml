@@ -1,0 +1,37 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - ONVIF_HOST=${ONVIF_HOST}
+      - ONVIF_PORT=${ONVIF_PORT}
+      - ONVIF_USERNAME=${ONVIF_USERNAME}
+      - ONVIF_PASSWORD=${ONVIF_PASSWORD}
+      - FFmpeg_BIN=/usr/bin/ffmpeg
+      - FFPROBE_BIN=/usr/bin/ffprobe
+      - NEXT_PUBLIC_API_BASE=http://localhost:3000
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+    networks:
+      - broadcast
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    networks:
+      - broadcast
+    depends_on:
+      - app
+
+networks:
+  broadcast:
+    driver: bridge
