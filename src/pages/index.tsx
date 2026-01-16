@@ -85,7 +85,7 @@ const Dashboard = () => {
               <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
                 <span>🎮</span> PTZ Control
               </h2>
-              <VirtualJoystick onMove={handleJoystickMove} onZoom={handleZoom} size=220 />
+              <VirtualJoystick onMove={handleJoystickMove} onZoom={handleZoom} size={220} />
 
               {/* Home Button */}
               <button
