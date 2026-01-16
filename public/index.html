@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎬 PTZ Camera Control</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    html, body { height: 100%; width: 100%; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+      height: 100%;
+    }
+    
+    header {
+      background: rgba(30, 41, 59, 0.8);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid #334155;
+      padding: 20px;
+      margin: -20px -20px 20px -20px;
+      border-radius: 0 0 12px 12px;
+    }
+    
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+      color: #06b6d4;
+      margin: 0;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 20px;
+      height: calc(100vh - 200px);
+    }
+    
+    @media (max-width: 1024px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    
+    .panel {
+      background: rgba(30, 41, 59, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .panel-header {
+      font-size: 16px;
+      font-weight: 600;
+      color: #06b6d4;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    /* Video Section */
+    .video-section {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    
+    .video-box {
+      background: #000;
+      border: 2px solid #0f4a5c;
+      border-radius: 8px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: #64748b;
+      margin-bottom: 15px;
+      overflow: hidden;
+      min-height: 300px;
+    }
+    
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    
+    .video-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .url-input-group {
+      display: flex;
+      gap: 8px;
+    }
+    
+    input[type="text"], input[type="url"] {
+      flex: 1;
+      padding: 10px 12px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 13px;
+      font-family: 'Courier New', monospace;
+    }
+    
+    input[type="text"]:focus, input[type="url"]:focus {
+      outline: none;
+      border-color: #06b6d4;
+      box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
+    }
+    
+    button {
+      padding: 10px 16px;
+      background: #06b6d4;
+      color: #0f172a;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    button:hover {
+      background: #00d9ff;
+      transform: translateY(-2px);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    /* Joystick */
+    .joystick-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 15px;
+      flex: 1;
+    }
+    
+    #joystick {
+      width: 220px;
+      height: 220px;
+      background: radial-gradient(circle, #0f172a 0%, #0a0f1a 100%);
+      border: 3px solid #06b6d4;
+      border-radius: 50%;
+      position: relative;
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      box-shadow: 
+        0 0 30px rgba(6, 182, 212, 0.3),
+        inset 0 0 20px rgba(6, 182, 212, 0.1);
+      transition: box-shadow 0.2s ease;
+    }
+    
+    #joystick:active {
+      cursor: grabbing;
+      box-shadow: 
+        0 0 50px rgba(6, 182, 212, 0.5),
+        inset 0 0 20px rgba(6, 182, 212, 0.2);
+    }
+    
+    .joystick-bg {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+    }
+    
+    .joystick-grid {
+      position: absolute;
+      width: 80%;
+      height: 80%;
+      border: 1px dashed rgba(6, 182, 212, 0.2);
+      border-radius: 50%;
+    }
+    
+    .joystick-crosshair {
+      position: absolute;
+      width: 50%;
+      height: 1px;
+      background: rgba(6, 182, 212, 0.1);
+      top: 50%;
+      left: 25%;
+    }
+    
+    .joystick-crosshair-v {
+      position: absolute;
+      width: 1px;
+      height: 50%;
+      background: rgba(6, 182, 212, 0.1);
+      left: 50%;
+      top: 25%;
+    }
+    
+    #joystickKnob {
+      width: 60px;
+      height: 60px;
+      background: radial-gradient(circle, #00d9ff 0%, #06b6d4 100%);
+      border: 2px solid #00d9ff;
+      border-radius: 50%;
+      position: absolute;
+      box-shadow: 
+        0 0 20px rgba(6, 182, 212, 0.8),
+        inset 0 0 10px rgba(255, 255, 255, 0.2);
+      left: 80px;
+      top: 80px;
+      z-index: 10;
+      transition: all 0.05s ease;
+    }
+    
+    .joystick-center-dot {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background: #06b6d4;
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 15;
+    }
+    
+    .status-display {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+    }
+    
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px solid #1e293b;
+    }
+    
+    .status-item:last-child {
+      border-bottom: none;
+    }
+    
+    .status-label {
+      color: #94a3b8;
+      font-weight: 600;
+    }
+    
+    .status-value {
+      color: #06b6d4;
+      font-weight: bold;
+    }
+    
+    /* Control Buttons */
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    
+    .small-btn {
+      padding: 8px 12px !important;
+      background: #334155 !important;
+      color: #e2e8f0 !important;
+      font-size: 12px !important;
+      border: 1px solid #475569 !important;
+    }
+    
+    .small-btn:hover {
+      background: #475569 !important;
+    }
+    
+    /* Footer */
+    footer {
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid #334155;
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+    }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #06b6d4;
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎬 PTZ Camera Control</h1>
+    </header>
+    
+    <div class="grid">
+      <!-- Left: Video Stream -->
+      <div class="panel">
+        <div class="panel-header">📹 Live Stream</div>
+        <div class="video-section">
+          <div class="video-box" id="videoBox">
+            <video id="videoPreview" autoplay muted controls></video>
+          </div>
+          <div class="video-controls">
+            <div class="url-input-group">
+              <input 
+                id="streamUrl" 
+                type="url" 
+                value="rtsp://192.168.1.11/1/h264major"
+                placeholder="Stream URL"
+              />
+              <button onclick="loadStream()">Load</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Right: PTZ Controls -->
+      <div class="panel">
+        <div class="joystick-wrapper">
+          <div class="panel-header" style="width: 100%; margin-bottom: 10px;">🎮 PTZ Joystick</div>
+          
+          <div id="joystick">
+            <div class="joystick-grid"></div>
+            <div class="joystick-crosshair"></div>
+            <div class="joystick-crosshair-v"></div>
+            <div id="joystickKnob"></div>
+            <div class="joystick-center-dot"></div>
+          </div>
+          
+          <div class="status-display" style="width: 100%;">
+            <div class="status-item">
+              <span class="status-label">Pan (P):</span>
+              <span class="status-value" id="panValue">0.00°</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Tilt (T):</span>
+              <span class="status-value" id="tiltValue">0.00°</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Zoom (Z):</span>
+              <span class="status-value" id="zoomValue">1.0x</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Status:</span>
+              <span class="status-value"><span class="status-indicator"></span>Ready</span>
+            </div>
+          </div>
+          
+          <div class="control-grid">
+            <button class="small-btn" onclick="sendPTZ('left')">← Pan L</button>
+            <button class="small-btn" onclick="sendPTZ('up')">↑ Tilt U</button>
+            <button class="small-btn" onclick="sendPTZ('right')">Pan R →</button>
+            <button class="small-btn" onclick="sendPTZ('down')">↓ Tilt D</button>
+            <button class="small-btn" onclick="sendPTZ('zoomin')">🔍 Zoom+</button>
+            <button class="small-btn" onclick="sendPTZ('zoomout')">🔍 Zoom-</button>
+            <button class="small-btn" onclick="sendPTZ('focus')">⭕ Focus</button>
+            <button class="small-btn" onclick="sendPTZ('home')">⌂ Home</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <footer>
+      <span class="status-indicator"></span> Broadcast WebUI v2.0 | Server: http://localhost:3000/api | Camera: 192.168.1.11:81
+    </footer>
+  </div>
+  
+  <script>
+    let panPos = 0, tiltPos = 0, zoomLevel = 1;
+    let isDragging = false;
+    const joystick = document.getElementById('joystick');
+    const knob = document.getElementById('joystickKnob');
+    const maxDistance = 85;
+    
+    function updateDisplay() {
+      document.getElementById('panValue').textContent = (panPos * 180).toFixed(1) + '°';
+      document.getElementById('tiltValue').textContent = (tiltPos * 90).toFixed(1) + '°';
+      document.getElementById('zoomValue').textContent = zoomLevel.toFixed(1) + 'x';
+    }
+    
+    joystick.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      updateKnobPosition(e);
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) updateKnobPosition(e);
+    });
+    
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        panPos = 0;
+        tiltPos = 0;
+        knob.style.left = '80px';
+        knob.style.top = '80px';
+        updateDisplay();
+      }
+    });
+    
+    function updateKnobPosition(e) {
+      const rect = joystick.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      
+      let x = e.clientX - cx;
+      let y = e.clientY - cy;
+      
+      const dist = Math.sqrt(x * x + y * y);
+      if (dist > maxDistance) {
+        x = (x / dist) * maxDistance;
+        y = (y / dist) * maxDistance;
+      }
+      
+      knob.style.left = (110 + x) + 'px';
+      knob.style.top = (110 + y) + 'px';
+      
+      panPos = x / maxDistance;
+      tiltPos = -y / maxDistance;
+      updateDisplay();
+      sendJoystickData();
+    }
+    
+    joystick.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      zoomLevel += e.deltaY > 0 ? -0.2 : 0.2;
+      zoomLevel = Math.max(1, Math.min(10, zoomLevel));
+      updateDisplay();
+    });
+    
+    async function loadStream() {
+      const url = document.getElementById('streamUrl').value;
+      console.log('📡 Loading stream:', url);
+      try {
+        const res = await fetch(`/api/stream?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        console.log('✅ Stream info:', data);
+      } catch (e) {
+        console.error('❌ Error:', e.message);
+      }
+    }
+    
+    async function sendJoystickData() {
+      try {
+        await fetch('/api/ptz', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pan: panPos, tilt: tiltPos, zoom: zoomLevel })
+        });
+      } catch (e) {
+        console.error('PTZ error:', e);
+      }
+    }
+    
+    async function sendPTZ(command) {
+      console.log('🎮 PTZ:', command);
+      try {
+        await fetch('/api/ptz', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command })
+        });
+      } catch (e) {
+        console.error('PTZ error:', e);
+      }
+    }
+    
+    // Initialize
+    console.log('✅ PTZ Control Interface loaded');
+    updateDisplay();
+  </script>
+</body>
+</html>
