@@ -2,46 +2,43 @@ const express = require('express');
 const path = require('path');
 const http = require('http');
 const net = require('net');
-const { spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 let cameraConfig = {
   ip: '192.168.1.11',
-  port: 81,
+  httpPort: 81,
+  rtspPort: 554,
+  onvifPort: 2000,
+  viscaPort: 52381,
   user: '',
   pass: '',
   protocol: 'http'
 };
 
-// Middleware
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Helper: HTTP request to camera
-function httpRequest(path, headers = {}) {
+// HTTP Request Helper
+function httpReq(port, path, auth = '') {
   return new Promise((resolve, reject) => {
-    const options = {
+    const opts = {
       hostname: cameraConfig.ip,
-      port: cameraConfig.port,
+      port: port,
       path: path,
       method: 'GET',
       timeout: 5000
     };
 
-    if (cameraConfig.user && cameraConfig.pass) {
-      const auth = Buffer.from(`${cameraConfig.user}:${cameraConfig.pass}`).toString('base64');
-      headers['Authorization'] = `Basic ${auth}`;
+    if (auth) {
+      opts.headers = { 'Authorization': auth };
     }
 
-    options.headers = headers;
-
-    const req = http.request(options, (res) => {
+    const req = http.request(opts, (res) => {
       let data = '';
       res.on('data', (chunk) => { data += chunk; });
-      res.on('end', () => resolve({ status: res.statusCode, body: data }));
+      res.on('end', () => resolve({ code: res.statusCode, body: data }));
     });
 
     req.on('error', reject);
@@ -53,71 +50,85 @@ function httpRequest(path, headers = {}) {
   });
 }
 
-// VISCA command builder
-function buildVISCACommand(command, params = {}) {
-  const cmd = Buffer.alloc(20);
-  cmd[0] = 0x81; // Camera
-  cmd[1] = 0x01; // Sequence
-  
-  switch(command) {
-    case 'pan_left':
-      cmd[2] = 0x06; cmd[3] = 0x01;
-      cmd[4] = 0x04; cmd[5] = 0x18;
-      cmd[6] = 0x03; cmd[7] = 0x01;
-      cmd[8] = 0xFF; // End
-      return cmd.slice(0, 9);
-    
-    case 'pan_right':
-      cmd[2] = 0x06; cmd[3] = 0x01;
-      cmd[4] = 0x04; cmd[5] = 0x18;
-      cmd[6] = 0x02; cmd[7] = 0x01;
-      cmd[8] = 0xFF;
-      return cmd.slice(0, 9);
-    
-    case 'tilt_up':
-      cmd[2] = 0x06; cmd[3] = 0x01;
-      cmd[4] = 0x04; cmd[5] = 0x18;
-      cmd[6] = 0x01; cmd[7] = 0x03;
-      cmd[8] = 0xFF;
-      return cmd.slice(0, 9);
-    
-    case 'tilt_down':
-      cmd[2] = 0x06; cmd[3] = 0x01;
-      cmd[4] = 0x04; cmd[5] = 0x18;
-      cmd[6] = 0x01; cmd[7] = 0x02;
-      cmd[8] = 0xFF;
-      return cmd.slice(0, 9);
-    
-    case 'zoom_in':
-      cmd[2] = 0x04; cmd[3] = 0x47; cmd[4] = 0x00; cmd[5] = 0xFF;
-      return cmd.slice(0, 6);
-    
-    case 'zoom_out':
-      cmd[2] = 0x04; cmd[3] = 0x47; cmd[4] = 0x03; cmd[5] = 0xFF;
-      return cmd.slice(0, 6);
-    
-    case 'home':
-      cmd[2] = 0x06; cmd[3] = 0x04; cmd[4] = 0xFF;
-      return cmd.slice(0, 5);
-    
-    default:
-      return null;
+// Get basic auth header
+function getAuthHeader() {
+  if (cameraConfig.user && cameraConfig.pass) {
+    return 'Basic ' + Buffer.from(`${cameraConfig.user}:${cameraConfig.pass}`).toString('base64');
   }
+  return '';
 }
 
-// Send VISCA command
-function sendVISCACommand(command) {
+// ONVIF Soap Request
+function buildONVIFRequest(method, params = {}) {
+  const ns = 'http://www.onvif.org/ver20/ptz/wsdl';
+  const tns = 'http://www.onvif.org/ver10/ptz/wsdl';
+
+  if (method === 'GetProfiles') {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+  <soap:Body>
+    <GetProfiles xmlns="http://www.onvif.org/ver10/device/wsdl"/>
+  </soap:Body>
+</soap:Envelope>`;
+  }
+
+  if (method === 'ContinuousMove') {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+  <soap:Body>
+    <ContinuousMove xmlns="${tns}">
+      <ProfileToken>${params.profile || 'PTZ_Profile_1'}</ProfileToken>
+      <Velocity>
+        <PanTilt x="${params.panVel || 0}" y="${params.tiltVel || 0}"/>
+        <Zoom x="${params.zoomVel || 0}"/>
+      </Velocity>
+    </ContinuousMove>
+  </soap:Body>
+</soap:Envelope>`;
+  }
+
+  if (method === 'Stop') {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+  <soap:Body>
+    <Stop xmlns="${tns}">
+      <ProfileToken>${params.profile || 'PTZ_Profile_1'}</ProfileToken>
+    </Stop>
+  </soap:Body>
+</soap:Envelope>`;
+  }
+
+  return '';
+}
+
+// VISCA Command Builder
+function buildVISCACmd(command) {
+  const cmds = {
+    'left': Buffer.from([0x81, 0x01, 0x06, 0x01, 0x04, 0x18, 0x03, 0x01, 0xFF]),
+    'right': Buffer.from([0x81, 0x01, 0x06, 0x01, 0x04, 0x18, 0x02, 0x01, 0xFF]),
+    'up': Buffer.from([0x81, 0x01, 0x06, 0x01, 0x04, 0x18, 0x01, 0x03, 0xFF]),
+    'down': Buffer.from([0x81, 0x01, 0x06, 0x01, 0x04, 0x18, 0x01, 0x02, 0xFF]),
+    'zoomin': Buffer.from([0x81, 0x01, 0x04, 0x47, 0x00, 0xFF]),
+    'zoomout': Buffer.from([0x81, 0x01, 0x04, 0x47, 0x03, 0xFF]),
+    'home': Buffer.from([0x81, 0x01, 0x06, 0x04, 0xFF]),
+    'focus': Buffer.from([0x81, 0x01, 0x04, 0x18, 0x01, 0xFF])
+  };
+  return cmds[command];
+}
+
+// Send VISCA
+function sendVISCA(command) {
   return new Promise((resolve, reject) => {
-    const socket = net.createConnection(cameraConfig.port, cameraConfig.ip);
-    const cmdBuf = buildVISCACommand(command);
-    
-    if (!cmdBuf) {
-      reject(new Error('Unknown VISCA command'));
+    const socket = net.createConnection(cameraConfig.viscaPort, cameraConfig.ip);
+    const buf = buildVISCACmd(command);
+
+    if (!buf) {
+      reject(new Error('Unknown command'));
       return;
     }
 
     socket.on('connect', () => {
-      socket.write(cmdBuf);
+      socket.write(buf);
       setTimeout(() => socket.end(), 200);
     });
 
@@ -127,7 +138,7 @@ function sendVISCACommand(command) {
   });
 }
 
-// Main endpoints
+// Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -135,124 +146,121 @@ app.get('/', (req, res) => {
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    camera: `${cameraConfig.ip}:${cameraConfig.port}`,
+    camera: `${cameraConfig.ip}:${cameraConfig.httpPort}`,
     protocol: cameraConfig.protocol
   });
 });
 
 app.get('/api/camera/info', async (req, res) => {
   try {
-    const result = await httpRequest('/cgi-bin/api.cgi?action=getStatus');
-    res.json({
-      status: 'ok',
-      response_code: result.status,
-      camera_ip: cameraConfig.ip
-    });
+    const auth = getAuthHeader();
+    const result = await httpReq(cameraConfig.httpPort, '/cgi-bin/api.cgi?action=getStatus', auth);
+    res.json({ status: 'ok', code: result.code });
   } catch (e) {
-    res.status(500).json({
-      status: 'error',
-      message: e.message
-    });
+    res.status(500).json({ status: 'error', message: e.message });
   }
 });
 
 app.post('/api/ptz', async (req, res) => {
   const { command, pan = 0, tilt = 0, zoom = 1 } = req.body;
-  
-  console.log('[PTZ]', { command, pan, tilt, zoom, protocol: cameraConfig.protocol });
+
+  console.log('[PTZ]', { command, pan, tilt, zoom, proto: cameraConfig.protocol });
 
   try {
-    let result;
-
     if (cameraConfig.protocol === 'http') {
-      // HTTP API commands
-      let httpCmd = '';
-      
-      if (command === 'left') {
-        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&panLeft=1';
-      } else if (command === 'right') {
-        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&panRight=1';
-      } else if (command === 'up') {
-        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&tiltUp=1';
-      } else if (command === 'down') {
-        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&tiltDown=1';
-      } else if (command === 'zoomin') {
-        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&zoomIn=1';
-      } else if (command === 'zoomout') {
-        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&zoomOut=1';
-      } else if (command === 'home') {
-        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&presetGoto=1';
-      } else if (command === 'focus') {
-        httpCmd = '/cgi-bin/api.cgi?action=ptzControl&autoFocus=1';
-      }
+      let url = '';
+      if (command === 'left') url = '/cgi-bin/api.cgi?action=ptzControl&panLeft=1';
+      else if (command === 'right') url = '/cgi-bin/api.cgi?action=ptzControl&panRight=1';
+      else if (command === 'up') url = '/cgi-bin/api.cgi?action=ptzControl&tiltUp=1';
+      else if (command === 'down') url = '/cgi-bin/api.cgi?action=ptzControl&tiltDown=1';
+      else if (command === 'zoomin') url = '/cgi-bin/api.cgi?action=ptzControl&zoomIn=1';
+      else if (command === 'zoomout') url = '/cgi-bin/api.cgi?action=ptzControl&zoomOut=1';
+      else if (command === 'home') url = '/cgi-bin/api.cgi?action=ptzControl&presetGoto=1';
+      else if (command === 'focus') url = '/cgi-bin/api.cgi?action=ptzControl&autoFocus=1';
 
-      if (httpCmd) {
-        result = await httpRequest(httpCmd);
-        res.json({ status: 'sent', command, protocol: 'http', response: result.status });
+      if (url) {
+        const auth = getAuthHeader();
+        const result = await httpReq(cameraConfig.httpPort, url, auth);
+        res.json({ status: 'sent', code: result.code });
       } else {
         res.json({ status: 'idle' });
       }
 
     } else if (cameraConfig.protocol === 'visca') {
-      // VISCA commands
-      let viscaCmd = '';
-      
-      if (command === 'left') viscaCmd = 'pan_left';
-      else if (command === 'right') viscaCmd = 'pan_right';
-      else if (command === 'up') viscaCmd = 'tilt_up';
-      else if (command === 'down') viscaCmd = 'tilt_down';
-      else if (command === 'zoomin') viscaCmd = 'zoom_in';
-      else if (command === 'zoomout') viscaCmd = 'zoom_out';
-      else if (command === 'home') viscaCmd = 'home';
-
-      if (viscaCmd) {
-        result = await sendVISCACommand(viscaCmd);
-        res.json({ status: 'sent', command, protocol: 'visca', result });
-      } else {
-        res.json({ status: 'idle' });
-      }
+      const result = await sendVISCA(command);
+      res.json({ status: 'sent', protocol: 'visca' });
 
     } else if (cameraConfig.protocol === 'onvif') {
-      // ONVIF - placeholder for future implementation
-      res.json({ status: 'pending', protocol: 'onvif', message: 'ONVIF support coming soon' });
+      // ONVIF via HTTP POST
+      const panVel = pan * 0.5;
+      const tiltVel = tilt * 0.5;
+      const soap = buildONVIFRequest('ContinuousMove', { panVel, tiltVel, zoomVel: zoom * 0.1 });
+      const auth = getAuthHeader();
+
+      const opts = {
+        hostname: cameraConfig.ip,
+        port: cameraConfig.onvifPort,
+        path: '/onvif/ptz_service',
+        method: 'POST',
+        timeout: 5000,
+        headers: {
+          'Content-Type': 'application/soap+xml',
+          'Content-Length': Buffer.byteLength(soap)
+        }
+      };
+
+      if (auth) opts.headers['Authorization'] = auth;
+
+      const req = http.request(opts, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          res.statusCode === 200
+            ? res.json({ status: 'sent', protocol: 'onvif' })
+            : res.json({ status: 'error', code: res.statusCode });
+        });
+      });
+
+      req.on('error', (e) => res.status(500).json({ status: 'error', message: e.message }));
+      req.write(soap);
+      req.end();
     }
   } catch (e) {
-    console.error('[PTZ Error]', e.message);
+    console.error('[Error]', e.message);
     res.status(500).json({ status: 'error', message: e.message });
   }
 });
 
-app.post('/api/camera/config', (req, res) => {
-  const { ip, port, user, pass, protocol } = req.body;
-  
+app.post('/api/config', (req, res) => {
+  const { ip, httpPort, rtspPort, onvifPort, viscaPort, user, pass, protocol } = req.body;
+
   if (ip) cameraConfig.ip = ip;
-  if (port) cameraConfig.port = port;
+  if (httpPort) cameraConfig.httpPort = httpPort;
+  if (rtspPort) cameraConfig.rtspPort = rtspPort;
+  if (onvifPort) cameraConfig.onvifPort = onvifPort;
+  if (viscaPort) cameraConfig.viscaPort = viscaPort;
   if (user !== undefined) cameraConfig.user = user;
   if (pass !== undefined) cameraConfig.pass = pass;
   if (protocol) cameraConfig.protocol = protocol;
 
-  console.log('[Config Updated]', cameraConfig);
+  console.log('[Config]', cameraConfig);
   res.json({ status: 'ok', config: cameraConfig });
 });
 
-app.use((req, res) => {
-  res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.use((err, req, res, next) => {
-  console.error('[Error]', err.message);
+app.use((req, res) => res.status(404).sendFile(path.join(__dirname, 'public', 'index.html')));
+app.use((err, req, res) => {
+  console.error('[Error]', err);
   res.status(500).json({ error: err.message });
 });
 
-// Start
 const server = http.createServer(app);
 server.listen(PORT, () => {
-  console.log(`\n Ready: http://localhost:${PORT}`);
-  console.log(` Camera: http://${cameraConfig.ip}:${cameraConfig.port}`);
-  console.log(` Protocol: ${cameraConfig.protocol}\n`);
+  console.log(`\nPTZ Server: http://localhost:${PORT}`);
+  console.log(`Camera: ${cameraConfig.ip}`);
+  console.log(`Protocol: ${cameraConfig.protocol}\n`);
 });
 
 process.on('SIGTERM', () => {
-  console.log('\nShutting down...');
+  console.log('\nShutdown...');
   server.close(() => process.exit(0));
 });
