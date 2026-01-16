@@ -1,7 +1,7 @@
 FROM node:18-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 COPY . .
 RUN npm run build
 
@@ -9,7 +9,7 @@ FROM node:18-alpine
 WORKDIR /app
 
 # Install FFmpeg dan dependencies
-RUN apk add --no-cache ffmpeg libx264 libx265
+RUN apk add --no-cache ffmpeg libx264 libx265 curl
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
