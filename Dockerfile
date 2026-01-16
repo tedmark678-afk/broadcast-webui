@@ -8,8 +8,8 @@ RUN npm run build
 FROM node:18-alpine
 WORKDIR /app
 
-# Install FFmpeg dan dependencies
-RUN apk add --no-cache ffmpeg libx264 libx265 curl
+# Install FFmpeg and curl for health checks
+RUN apk add --no-cache ffmpeg curl
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
