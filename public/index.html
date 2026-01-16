@@ -16,7 +16,7 @@
     
     .app-container {
       display: grid;
-      grid-template-columns: 1fr 1fr 300px;
+      grid-template-columns: 1fr 1fr 320px;
       gap: 16px;
       height: 100vh;
       padding: 16px;
@@ -24,7 +24,7 @@
 
     @media (max-width: 1400px) {
       .app-container { grid-template-columns: 1fr 1fr; }
-      .settings-panel { grid-column: 1 / -1; }
+      .settings-panel { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
     }
 
     @media (max-width: 800px) {
@@ -42,8 +42,8 @@
       overflow: hidden;
     }
     
-    .panel-header {
-      font-size: 14px;
+    .panel-title {
+      font-size: 13px;
       font-weight: 700;
       color: #06b6d4;
       margin-bottom: 12px;
@@ -51,11 +51,7 @@
       letter-spacing: 0.5px;
     }
     
-    /* Video Stream */
-    .video-panel {
-      grid-column: 1;
-    }
-
+    .video-panel { grid-column: 1; }
     .video-container {
       background: #000;
       border: 1px solid #0f4a5c;
@@ -67,31 +63,28 @@
       overflow: hidden;
       margin-bottom: 12px;
       min-height: 400px;
+      position: relative;
     }
 
-    video, canvas {
+    video {
       width: 100%;
       height: 100%;
       object-fit: contain;
     }
 
-    .video-status {
-      font-size: 12px;
-      color: #64748b;
-      padding: 12px;
+    .video-placeholder {
+      position: absolute;
       text-align: center;
-      background: rgba(15, 23, 42, 0.5);
-      border-radius: 4px;
+      color: #64748b;
     }
-    
-    .stream-url-group {
+
+    .stream-controls {
       display: flex;
       gap: 8px;
       margin-bottom: 8px;
     }
 
-    input[type="text"], input[type="url"], input[type="number"], select {
-      flex: 1;
+    input[type="text"], input[type="url"], input[type="number"], select, input[type="range"] {
       padding: 8px 10px;
       background: #0f172a;
       border: 1px solid #334155;
@@ -122,10 +115,6 @@
       background: #00d9ff;
     }
 
-    button:active {
-      transform: scale(0.98);
-    }
-
     button.secondary {
       background: #334155;
       color: #e2e8f0;
@@ -135,14 +124,13 @@
       background: #475569;
     }
     
-    /* Joystick */
     .ptz-panel {
       grid-column: 2;
       display: flex;
       flex-direction: column;
     }
 
-    .joystick-container {
+    .joystick-wrapper {
       display: flex;
       justify-content: center;
       align-items: center;
@@ -158,25 +146,25 @@
       border-radius: 50%;
       position: relative;
       cursor: grab;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       user-select: none;
-      box-shadow: 0 0 30px rgba(6, 182, 212, 0.3), inset 0 0 20px rgba(6, 182, 212, 0.1);
+      box-shadow: 0 0 30px rgba(6, 182, 212, 0.3);
       touch-action: none;
     }
 
     #joystick:active {
       cursor: grabbing;
-      box-shadow: 0 0 40px rgba(6, 182, 212, 0.5), inset 0 0 20px rgba(6, 182, 212, 0.2);
+      box-shadow: 0 0 40px rgba(6, 182, 212, 0.5);
     }
 
     .joystick-center {
       position: absolute;
-      width: 8px;
-      height: 8px;
+      width: 6px;
+      height: 6px;
       background: #06b6d4;
       border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       z-index: 5;
     }
 
@@ -186,18 +174,20 @@
       height: 70%;
       border: 1px dashed rgba(6, 182, 212, 0.2);
       border-radius: 50%;
+      top: 15%;
+      left: 15%;
     }
 
     #joystickKnob {
-      width: 50px;
-      height: 50px;
+      width: 48px;
+      height: 48px;
       background: radial-gradient(circle, #00d9ff 0%, #06b6d4 100%);
       border: 2px solid #00d9ff;
       border-radius: 50%;
       position: absolute;
       box-shadow: 0 0 20px rgba(6, 182, 212, 0.8);
-      left: 95px;
-      top: 95px;
+      top: 96px;
+      left: 96px;
       z-index: 10;
     }
 
@@ -205,7 +195,7 @@
       background: rgba(15, 23, 42, 0.8);
       border: 1px solid #334155;
       border-radius: 4px;
-      padding: 12px;
+      padding: 10px;
       margin-top: 12px;
       font-family: monospace;
       font-size: 11px;
@@ -214,14 +204,32 @@
     .stat-row {
       display: flex;
       justify-content: space-between;
-      padding: 4px 0;
-      border-bottom: 1px solid #1e293b;
+      padding: 3px 0;
     }
-
-    .stat-row:last-child { border-bottom: none; }
 
     .stat-label { color: #94a3b8; font-weight: 600; }
     .stat-value { color: #06b6d4; font-weight: bold; }
+
+    .speed-control {
+      margin-top: 12px;
+      padding: 10px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid #334155;
+      border-radius: 4px;
+    }
+
+    .speed-label {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      cursor: pointer;
+    }
 
     .ptz-buttons {
       display: grid;
@@ -241,28 +249,22 @@
       background: #475569 !important;
     }
 
-    /* Settings */
     .settings-panel {
       grid-column: 3;
       max-height: 100vh;
       overflow-y: auto;
     }
 
-    @media (max-width: 1400px) {
-      .settings-panel { 
-        grid-column: 1 / -1;
-        max-height: auto;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      }
-    }
-
     .settings-section {
       margin-bottom: 12px;
+      padding: 10px;
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid #334155;
+      border-radius: 4px;
     }
 
     .settings-section-title {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       color: #06b6d4;
       margin-bottom: 8px;
@@ -275,9 +277,9 @@
     }
 
     .setting-label {
-      font-size: 11px;
+      font-size: 10px;
       color: #94a3b8;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
       display: block;
       font-weight: 500;
     }
@@ -287,102 +289,67 @@
       width: 100%;
     }
 
+    .port-row {
+      display: grid;
+      grid-template-columns: 1fr 80px;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .port-row input {
+      width: 100%;
+    }
+
     .button-group {
       display: flex;
       gap: 6px;
+      margin-top: 8px;
     }
 
     .button-group button {
       flex: 1;
     }
 
-    .status-box {
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid #334155;
-      border-radius: 4px;
-      padding: 8px;
-      margin-top: 8px;
+    .status-msg {
       font-size: 11px;
-    }
-
-    .status-indicator {
-      display: inline-block;
-      width: 6px;
-      height: 6px;
-      background: #06b6d4;
-      border-radius: 50%;
-      margin-right: 4px;
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    .error {
-      background: rgba(192, 21, 47, 0.1);
-      border: 1px solid #c01530;
-      color: #ff6b6b;
-      padding: 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      margin-top: 8px;
-    }
-
-    .success {
-      background: rgba(33, 128, 141, 0.1);
-      border: 1px solid #06b6d4;
-      color: #06b6d4;
-      padding: 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      margin-top: 8px;
-    }
-
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #334155;
+      margin-top: 6px;
+      padding: 6px;
       border-radius: 3px;
+      text-align: center;
     }
 
-    ::-webkit-scrollbar-thumb:hover {
-      background: #475569;
-    }
+    .success { background: rgba(33, 128, 141, 0.2); color: #06b6d4; border: 1px solid #06b6d4; }
+    .error { background: rgba(192, 21, 47, 0.2); color: #ff6b6b; border: 1px solid #c01530; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
   </style>
 </head>
 <body>
   <div class="app-container">
-    <!-- Video Panel -->
+    <!-- Video -->
     <div class="panel video-panel">
-      <div class="panel-header">Live Stream</div>
+      <div class="panel-title">Live Stream</div>
       <div class="video-container">
-        <canvas id="videoCanvas" style="display:none;"></canvas>
         <video id="videoPreview" autoplay muted playsinline></video>
-        <div id="videoPlaceholder" style="color: #64748b; text-align: center;">
-          <div style="margin-bottom: 10px;">No stream</div>
-          <div style="font-size: 11px; color: #475569;">Enter stream URL below</div>
+        <div class="video-placeholder" id="videoPlaceholder">
+          <div>No stream active</div>
+          <div style="font-size: 10px; color: #475569; margin-top: 4px;">Configure and load below</div>
         </div>
       </div>
-      <div class="stream-url-group">
-        <input id="streamUrl" type="url" placeholder="rtsp://192.168.1.11/1/h264major" value="rtsp://192.168.1.11/1/h264major">
+      <div class="stream-controls">
+        <input id="streamUrl" type="url" placeholder="rtsp://192.168.1.11:554/1/h264major" value="rtsp://192.168.1.11:554/1/h264major" style="flex: 1;">
         <button onclick="loadStream()">Load</button>
       </div>
-      <div class="video-status" id="videoStatus">Ready</div>
+      <div style="font-size: 11px; color: #94a3b8; padding: 8px; background: rgba(15,23,42,0.5); border-radius: 4px;" id="videoStatus">Ready</div>
     </div>
 
-    <!-- PTZ Panel -->
+    <!-- PTZ -->
     <div class="panel ptz-panel">
-      <div class="panel-header">PTZ Control</div>
+      <div class="panel-title">PTZ Control</div>
       
-      <div class="joystick-container">
+      <div class="joystick-wrapper">
         <div id="joystick">
           <div class="joystick-ring"></div>
           <div class="joystick-center"></div>
@@ -391,54 +358,61 @@
       </div>
 
       <div class="joystick-stats">
-        <div class="stat-row">
-          <span class="stat-label">Pan:</span>
-          <span class="stat-value" id="panValue">0.00 deg</span>
+        <div class="stat-row"><span class="stat-label">Pan:</span><span class="stat-value" id="panValue">0.00</span></div>
+        <div class="stat-row"><span class="stat-label">Tilt:</span><span class="stat-value" id="tiltValue">0.00</span></div>
+        <div class="stat-row"><span class="stat-label">Zoom:</span><span class="stat-value" id="zoomValue">1.0x</span></div>
+      </div>
+
+      <div class="speed-control">
+        <div class="speed-label">
+          <span>Speed</span>
+          <span id="speedValue">50%</span>
         </div>
-        <div class="stat-row">
-          <span class="stat-label">Tilt:</span>
-          <span class="stat-value" id="tiltValue">0.00 deg</span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-label">Zoom:</span>
-          <span class="stat-value" id="zoomValue">1.0x</span>
-        </div>
+        <input type="range" id="speedSlider" min="10" max="100" value="50" step="10" onchange="updateSpeed()">
       </div>
 
       <div class="ptz-buttons">
-        <button class="ptz-btn" onclick="quickCmd('left')">Pan L</button>
-        <button class="ptz-btn" onclick="quickCmd('up')">Tilt U</button>
-        <button class="ptz-btn" onclick="quickCmd('right')">Pan R</button>
-        <button class="ptz-btn" onclick="quickCmd('down')">Tilt D</button>
-        <button class="ptz-btn" onclick="quickCmd('zoomin')">Zoom+</button>
-        <button class="ptz-btn" onclick="quickCmd('zoomout')">Zoom-</button>
-        <button class="ptz-btn" onclick="quickCmd('focus')">Focus</button>
+        <button class="ptz-btn" onmousedown="startCmd('left')" onmouseup="stopCmd()" ontouchstart="startCmd('left')" ontouchend="stopCmd()">Pan L</button>
+        <button class="ptz-btn" onmousedown="startCmd('up')" onmouseup="stopCmd()" ontouchstart="startCmd('up')" ontouchend="stopCmd()">Tilt U</button>
+        <button class="ptz-btn" onmousedown="startCmd('right')" onmouseup="stopCmd()" ontouchstart="startCmd('right')" ontouchend="stopCmd()">Pan R</button>
+        <button class="ptz-btn" onmousedown="startCmd('down')" onmouseup="stopCmd()" ontouchstart="startCmd('down')" ontouchend="stopCmd()">Tilt D</button>
+        <button class="ptz-btn" onmousedown="startCmd('zoomin')" onmouseup="stopCmd()" ontouchstart="startCmd('zoomin')" ontouchend="stopCmd()">Zoom In</button>
+        <button class="ptz-btn" onmousedown="startCmd('zoomout')" onmouseup="stopCmd()" ontouchstart="startCmd('zoomout')" ontouchend="stopCmd()">Zoom Out</button>
+        <button class="ptz-btn" onclick="quickCmd('focus')">Auto Focus</button>
         <button class="ptz-btn" onclick="quickCmd('home')">Home</button>
       </div>
     </div>
 
-    <!-- Settings Panel -->
-    <div class="panel settings-panel">
-      <div class="panel-header">Camera Settings</div>
+    <!-- Settings -->
+    <div class="settings-panel">
+      <div class="panel-title">Camera Config</div>
 
       <div class="settings-section">
         <div class="settings-section-title">Connection</div>
-        
         <div class="setting-item">
-          <label class="setting-label">Camera IP</label>
-          <input id="cameraIP" type="text" value="192.168.1.11" placeholder="192.168.1.11">
+          <label class="setting-label">IP Address</label>
+          <input id="cameraIP" type="text" value="192.168.1.11">
         </div>
+      </div>
 
-        <div class="setting-item">
-          <label class="setting-label">Port</label>
-          <input id="cameraPort" type="number" value="81" min="1" max="65535">
+      <div class="settings-section">
+        <div class="settings-section-title">Ports</div>
+        <div class="port-row">
+          <div><label class="setting-label">HTTP</label><input id="httpPort" type="number" value="81" min="1"></div>
+          <div><label class="setting-label">RTSP</label><input id="rtspPort" type="number" value="554" min="1"></div>
         </div>
+        <div class="port-row">
+          <div><label class="setting-label">ONVIF</label><input id="onvifPort" type="number" value="2000" min="1"></div>
+          <div><label class="setting-label">VISCA</label><input id="viscaPort" type="number" value="52381" min="1"></div>
+        </div>
+      </div>
 
+      <div class="settings-section">
+        <div class="settings-section-title">Auth</div>
         <div class="setting-item">
           <label class="setting-label">Username</label>
           <input id="cameraUser" type="text" placeholder="admin">
         </div>
-
         <div class="setting-item">
           <label class="setting-label">Password</label>
           <input id="cameraPass" type="text" placeholder="password">
@@ -447,115 +421,93 @@
 
       <div class="settings-section">
         <div class="settings-section-title">Protocol</div>
-        
         <div class="setting-item">
-          <label class="setting-label">Control Protocol</label>
-          <select id="controlProtocol" onchange="updateProtocol()">
+          <label class="setting-label">Control</label>
+          <select id="controlProtocol">
             <option value="http">HTTP API</option>
             <option value="onvif">ONVIF</option>
-            <option value="visca">VISCA over IP</option>
-            <option value="rtsp">RTSP (Read-only)</option>
+            <option value="visca">VISCA</option>
           </select>
         </div>
-
         <div class="setting-item">
-          <label class="setting-label">Stream Protocol</label>
-          <select id="streamProtocol">
-            <option value="rtsp">RTSP</option>
-            <option value="http">HTTP/HLS</option>
-            <option value="rtsps">RTSP Secure</option>
+          <label class="setting-label">Stream</label>
+          <select id="streamPath">
+            <option value="/1/h264major">H264 Main</option>
+            <option value="/1/h264minor">H264 Sub</option>
           </select>
         </div>
       </div>
 
-      <div class="settings-section">
-        <div class="settings-section-title">Stream Path</div>
-        
-        <div class="setting-item">
-          <label class="setting-label">Stream 1</label>
-          <input id="streamPath1" type="text" value="/1/h264major" placeholder="/1/h264major">
-        </div>
-
-        <div class="setting-item">
-          <label class="setting-label">Stream 2</label>
-          <input id="streamPath2" type="text" value="/1/h264minor" placeholder="/1/h264minor">
-        </div>
+      <div class="button-group">
+        <button onclick="testConnection()">Test</button>
+        <button class="secondary" onclick="saveSettings()">Save</button>
       </div>
-
-      <div class="settings-section">
-        <div class="button-group">
-          <button onclick="testConnection()">Test</button>
-          <button class="secondary" onclick="saveSettings()">Save</button>
-        </div>
-        <div id="statusMessage"></div>
-      </div>
+      <div id="statusMessage"></div>
     </div>
   </div>
 
   <script>
-    // State
     let state = {
       pan: 0, tilt: 0, zoom: 1,
       isDragging: false,
-      cameraConfig: {
+      speed: 0.5,
+      cmdLoop: null,
+      currentCmd: null,
+      config: {
         ip: '192.168.1.11',
-        port: 81,
-        user: '',
-        pass: '',
+        httpPort: 81,
+        rtspPort: 554,
+        onvifPort: 2000,
+        viscaPort: 52381,
         protocol: 'http'
       }
     };
 
     const joystick = document.getElementById('joystick');
     const knob = document.getElementById('joystickKnob');
-    const maxRadius = 90;
-    const centerX = 120, centerY = 120;
+    const maxR = 90;
+    const cX = 120, cY = 120;
 
-    // Joystick handlers
+    // Smooth joystick input
     function startDrag(e) {
       state.isDragging = true;
-      updateJoystickPosition(e);
+      updateJoystick(e);
     }
 
     function moveDrag(e) {
-      if (state.isDragging) {
-        updateJoystickPosition(e);
-      }
+      if (state.isDragging) updateJoystick(e);
     }
 
-    function endDrag(e) {
+    function endDrag() {
       state.isDragging = false;
       state.pan = 0;
       state.tilt = 0;
-      knob.style.left = '95px';
-      knob.style.top = '95px';
+      knob.style.transform = 'translate(-24px, -24px)';
+      knob.style.top = '96px';
+      knob.style.left = '96px';
       updateDisplay();
-      sendPTZ({ pan: 0, tilt: 0 });
     }
 
-    function updateJoystickPosition(e) {
+    function updateJoystick(e) {
       const rect = joystick.getBoundingClientRect();
-      const x = (e.clientX || e.touches?.[0]?.clientX || 0) - rect.left - centerX;
-      const y = (e.clientY || e.touches?.[0]?.clientY || 0) - rect.top - centerY;
-
-      const dist = Math.sqrt(x * x + y * y);
+      const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left - cX;
+      const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top - cY;
+      const d = Math.sqrt(x*x + y*y);
       let px = x, py = y;
 
-      if (dist > maxRadius) {
-        px = (x / dist) * maxRadius;
-        py = (y / dist) * maxRadius;
+      if (d > maxR) {
+        px = (x/d) * maxR;
+        py = (y/d) * maxR;
       }
 
-      knob.style.left = (centerX + px - 25) + 'px';
-      knob.style.top = (centerY + py - 25) + 'px';
-
-      state.pan = px / maxRadius;
-      state.tilt = -py / maxRadius;
+      knob.style.left = (cX + px - 24) + 'px';
+      knob.style.top = (cY + py - 24) + 'px';
+      state.pan = px / maxR;
+      state.tilt = -py / maxR;
       updateDisplay();
-      sendPTZ({ pan: state.pan, tilt: state.tilt });
+      sendContinuous();
     }
 
-    // Event listeners
     joystick.addEventListener('mousedown', startDrag);
     joystick.addEventListener('touchstart', startDrag);
     document.addEventListener('mousemove', moveDrag);
@@ -570,10 +522,51 @@
       updateDisplay();
     });
 
+    function updateSpeed() {
+      state.speed = parseInt(document.getElementById('speedSlider').value) / 100;
+      document.getElementById('speedValue').textContent = Math.round(state.speed * 100) + '%';
+    }
+
     function updateDisplay() {
-      document.getElementById('panValue').textContent = (state.pan * 180).toFixed(1) + ' deg';
-      document.getElementById('tiltValue').textContent = (state.tilt * 90).toFixed(1) + ' deg';
+      document.getElementById('panValue').textContent = (state.pan * 100).toFixed(0);
+      document.getElementById('tiltValue').textContent = (state.tilt * 100).toFixed(0);
       document.getElementById('zoomValue').textContent = state.zoom.toFixed(1) + 'x';
+    }
+
+    async function sendContinuous() {
+      if (!state.isDragging) return;
+      try {
+        await fetch('/api/ptz', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pan: state.pan * state.speed,
+            tilt: state.tilt * state.speed,
+            zoom: state.zoom
+          })
+        });
+      } catch (e) { }
+    }
+
+    function startCmd(cmd) {
+      state.currentCmd = cmd;
+      if (!state.cmdLoop) {
+        state.cmdLoop = setInterval(() => {
+          if (state.currentCmd) sendPTZ({ command: state.currentCmd });
+        }, 100);
+      }
+    }
+
+    function stopCmd() {
+      state.currentCmd = null;
+      if (state.cmdLoop) {
+        clearInterval(state.cmdLoop);
+        state.cmdLoop = null;
+      }
+    }
+
+    async function quickCmd(cmd) {
+      await sendPTZ({ command: cmd });
     }
 
     async function sendPTZ(data) {
@@ -583,96 +576,70 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
-      } catch (e) {
-        console.error('PTZ error:', e);
-      }
-    }
-
-    async function quickCmd(cmd) {
-      await sendPTZ({ command: cmd });
+      } catch (e) { console.error(e); }
     }
 
     async function loadStream() {
       const url = document.getElementById('streamUrl').value;
       const video = document.getElementById('videoPreview');
-      const placeholder = document.getElementById('videoPlaceholder');
       const status = document.getElementById('videoStatus');
+      const ph = document.getElementById('videoPlaceholder');
 
-      if (!url) {
-        status.textContent = 'Enter stream URL';
-        return;
-      }
-
+      if (!url) { status.textContent = 'Enter URL'; return; }
+      status.textContent = 'Connecting...';
       try {
-        status.textContent = 'Connecting...';
         video.src = url;
-        video.onloadstart = () => {
-          placeholder.style.display = 'none';
-          status.textContent = 'Playing';
-        };
-        video.onerror = () => {
-          status.textContent = 'Error: Stream unavailable';
-          placeholder.style.display = 'flex';
-        };
-      } catch (e) {
-        status.textContent = 'Error: ' + e.message;
-      }
-    }
-
-    function updateProtocol() {
-      const proto = document.getElementById('controlProtocol').value;
-      console.log('Protocol changed to:', proto);
+        video.onloadstart = () => { ph.style.display = 'none'; status.textContent = 'Playing'; };
+        video.onerror = () => { status.textContent = 'Error'; ph.style.display = 'block'; };
+      } catch (e) { status.textContent = 'Error: ' + e.message; }
     }
 
     async function testConnection() {
-      const status = document.getElementById('statusMessage');
-      const ip = document.getElementById('cameraIP').value;
-      const port = document.getElementById('cameraPort').value;
-
-      status.innerHTML = '<div class="status-box" style="margin-top: 8px;"><span class="status-indicator"></span>Testing...</div>';
-
+      const msg = document.getElementById('statusMessage');
+      msg.innerHTML = '<div class="status-msg">Testing...</div>';
       try {
-        const res = await fetch(`/api/camera/info`);
-        const data = await res.json();
-        if (data.status === 'ok') {
-          status.innerHTML = '<div class="success">Connected to camera</div>';
-        } else {
-          status.innerHTML = '<div class="error">Camera not responding</div>';
-        }
+        const r = await fetch('/api/camera/info');
+        const d = await r.json();
+        msg.innerHTML = d.status === 'ok' ? '<div class="status-msg success">Connected</div>' : '<div class="status-msg error">Offline</div>';
       } catch (e) {
-        status.innerHTML = '<div class="error">Connection failed: ' + e.message + '</div>';
+        msg.innerHTML = '<div class="status-msg error">Failed: ' + e.message + '</div>';
       }
     }
 
     function saveSettings() {
-      state.cameraConfig = {
+      state.config = {
         ip: document.getElementById('cameraIP').value,
-        port: document.getElementById('cameraPort').value,
+        httpPort: parseInt(document.getElementById('httpPort').value),
+        rtspPort: parseInt(document.getElementById('rtspPort').value),
+        onvifPort: parseInt(document.getElementById('onvifPort').value),
+        viscaPort: parseInt(document.getElementById('viscaPort').value),
         user: document.getElementById('cameraUser').value,
         pass: document.getElementById('cameraPass').value,
         protocol: document.getElementById('controlProtocol').value
       };
-      localStorage.setItem('cameraConfig', JSON.stringify(state.cameraConfig));
-      document.getElementById('statusMessage').innerHTML = '<div class="success">Settings saved</div>';
+      localStorage.setItem('ptzConfig', JSON.stringify(state.config));
+      document.getElementById('statusMessage').innerHTML = '<div class="status-msg success">Saved</div>';
     }
 
-    // Load settings on init
     function loadSettings() {
-      const saved = localStorage.getItem('cameraConfig');
+      const saved = localStorage.getItem('ptzConfig');
       if (saved) {
-        state.cameraConfig = JSON.parse(saved);
-        document.getElementById('cameraIP').value = state.cameraConfig.ip;
-        document.getElementById('cameraPort').value = state.cameraConfig.port;
-        document.getElementById('cameraUser').value = state.cameraConfig.user || '';
-        document.getElementById('cameraPass').value = state.cameraConfig.pass || '';
-        document.getElementById('controlProtocol').value = state.cameraConfig.protocol || 'http';
+        state.config = JSON.parse(saved);
+        document.getElementById('cameraIP').value = state.config.ip;
+        document.getElementById('httpPort').value = state.config.httpPort;
+        document.getElementById('rtspPort').value = state.config.rtspPort;
+        document.getElementById('onvifPort').value = state.config.onvifPort;
+        document.getElementById('viscaPort').value = state.config.viscaPort;
+        document.getElementById('cameraUser').value = state.config.user || '';
+        document.getElementById('cameraPass').value = state.config.pass || '';
+        document.getElementById('controlProtocol').value = state.config.protocol || 'http';
       }
     }
 
-    // Init
-    loadSettings();
+    updateSpeed();
     updateDisplay();
-    console.log('PTZ Control ready');
+    loadSettings();
+    console.log('PTZ ready');
   </script>
 </body>
 </html>
