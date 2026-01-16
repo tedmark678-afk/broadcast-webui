@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Stop, Settings, Zap } from 'lucide-react';
+import { Play, Square, Settings, Zap } from 'lucide-react';
 
 interface EncodingPreset {
   id: string;
@@ -187,7 +187,7 @@ export default function EncodingPanel() {
                     <p className="text-xs text-slate-400 mt-1 font-mono">{enc.output}</p>
                   </div>
                   <button className="bg-red-600 hover:bg-red-500 p-2 rounded text-white text-xs">
-                    <Stop className="w-4 h-4" />
+                    <Square className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs">
