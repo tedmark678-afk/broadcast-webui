@@ -8,7 +8,7 @@ const Dashboard = () => {
   const [pan, setPan] = useState(0);
   const [tilt, setTilt] = useState(0);
   const [zoom, setZoom] = useState(1.0);
-  const [inputUrl, setInputUrl] = useState('rtsp://camera:554/stream');
+  const [inputUrl, setInputUrl] = useState('rtsp://192.168.1.11/1/h264major');
 
   const handleJoystickMove = (panValue: number, tiltValue: number) => {
     setPan(panValue * 100);
@@ -74,9 +74,10 @@ const Dashboard = () => {
                   value={inputUrl}
                   onChange={(e) => setInputUrl(e.target.value)}
                   className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
-                  placeholder="rtsp://camera:554/stream"
+                  placeholder="rtsp://192.168.1.11/1/h264major"
                 />
-                <p className="text-xs text-slate-400 mt-2">Supports: RTSP, RTMP, HTTP, HLS, or local file path</p>
+                <p className="text-xs text-slate-400 mt-2">Current: <code className="bg-slate-800 px-2 py-1 rounded">rtsp://192.168.1.11/1/h264major</code></p>
+                <p className="text-xs text-slate-400 mt-1">HTTP Control: <code className="bg-slate-800 px-2 py-1 rounded">http://192.168.1.11:81</code></p>
               </div>
             </div>
 
@@ -146,6 +147,20 @@ const Dashboard = () => {
             </div>
           </div>
 
+          {/* Camera Control Card */}
+          <div className="bg-gradient-to-br from-slate-900/50 to-slate-800/50 backdrop-blur rounded-lg p-6 border border-slate-700 border-dashed">
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <span>⚙️</span> Camera Control (HTTP API)
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <button className="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded transition-all">Go Home</button>
+              <button className="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded transition-all">Zoom In</button>
+              <button className="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded transition-all">Zoom Out</button>
+              <button className="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded transition-all">Focus Auto</button>
+            </div>
+            <p className="text-xs text-slate-400 mt-4">Control endpoint: <code className="bg-slate-800 px-2 py-1 rounded">http://192.168.1.11:81/cgi-bin/api.cgi</code></p>
+          </div>
+
           {/* Instructions */}
           <div className="bg-slate-900/50 backdrop-blur rounded-lg p-6 border border-slate-700 border-dashed">
             <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
@@ -175,7 +190,7 @@ const Dashboard = () => {
         {/* Footer */}
         <footer className="border-t border-slate-800 bg-slate-900/50 mt-12 py-6 text-center text-sm text-slate-400">
           <p>Broadcast WebUI v1.0 • Professional PTZ Camera Control System</p>
-          <p className="mt-1">© 2026 Broadcast Solutions</p>
+          <p className="mt-1">© 2026 Broadcast Solutions | Camera: 192.168.1.11:81</p>
         </footer>
       </div>
     </>
